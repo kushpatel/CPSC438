@@ -1,0 +1,62 @@
+Qn1:
+
+			    Average Transaction Duration
+			0.1ms		1ms			10ms		100ms
+Read only
+ Serial   	5159.8		926.075		99.0972		10.0124	
+ Locking A	65123.9		59494.9		6664.93		554.355	
+ Locking B	57515.2		75220.9		9594.12		933.238	
+ OCC      	62281.2		84922.3		9604.72		931.865	
+ OCC-P    	44713.8		57567.8		9517.66		930.987	
+1% contention
+ Serial   	5422.93		913.906		99.3726		9.94048	
+ Locking A	22706.8		23031.3		7098.97		612.259	
+ Locking B	22643.3		23536		6741.46		588.778	
+ OCC      	20467.1		23132.1		5120.29		501.44	
+ OCC-P    	18852.3		17460.3		3909.83		353.784	
+10% contention
+ Serial   	5659.33		911.046		98.9076		9.95193	
+ Locking A	21240.3		22165		8209.73		702.684	
+ Locking B	20584.1		19226.5		8332.82		724.458	
+ OCC      	13791.6		16359.5		2514.89		265.193	
+ OCC-P    	7880.55		5063.7		880.315		82.9149	
+65% contention
+ Serial   	5301.8		895.555		99.4083		9.93792	
+ Locking A	16682.4		11494.6		1604.86		143.501	
+ Locking B	17544.1		15186.6		3112.5		236.694	
+ OCC      	11615		9063.79		1120.66		156.8	
+ OCC-P    	1000.16		605.229		133.246		16.7505	
+100% contention
+ Serial   	5416.75		926.315		99.3911		10.0872	
+ Locking A	4699.52		900.248		98.8033		10.0598	
+ Locking B	4752.04		897.867		98.6774		9.94514	
+ OCC      	18329.1		8148.29		701.056		166.074	
+ OCC-P    	1290.77		504.477		93.1548		9.88897	
+High contention mixed read/write
+ Serial   	10883.8		4996.11		825.718		100.16	
+ Locking A	30646.6		30650.9		13087.6		1346.27	
+ Locking B	27198.8		28788		15315.7		1801.83	
+ OCC      	19558.7		14840.9		2632.26		913.033	
+ OCC-P    	3368.22		2648.09		1368.54		801.683	
+
+Qn2:
+
+Forcing a transaction to sleep for a given amount of time is a good way of approximating transaction costs because the time taken by a transaction to execute may vary greatly depending on the nature of the transation and what it's doing. Transactions may be doing all sorts of operations like joins or simple reads only. It is thus difficult to assess the run time of a particular transaction uniformly. Forcing a thread to sleep for a set of fixed time limits hence enables us to approximate these times which we would otherwise be unable to measure because it is difficult to accurately predict the types of transactions in a real system. In this case, the throughputs of a transaction can be analyzed at the different sleep times to get a good approximation of the run-time of the transaction.
+
+However, this approximation seems to be very artificial and inaccurate because we are arbitrarily assigning the values of the set of sleep times (i.e. 0.1ms, 1ms, 10ms and 100ms). This set of sleep times uses values that are increasing by factor 10. A better approximation that could be used would be to have the set of sleep times distributed normally around a predicted value obtained first by the set that's already being used. For example, if a transaction shows the most throughput at 0.1ms then rerun the test using normalized sleep times distribution around 0.1ms. This technique can be repeated over and over again to increase the accuracy of the approximations but at the same time it would take much longer to rerun each transaction.
+
+Qn3:
+
+Both locking scheme B and two-phase locking use two types of locks: exclusive and shared. Exclusive locks are used on data that is to be written and shared locks are used on data that is to be read. Both the locking schemes have a lock acquisition phase and lock release phase. In locking scheme B, a transaction has a list of locks that it wants to acquire. In the lock acquisition phase it will acquire all the locks that it needs before starting to execute anything. After lock acquisition, the transaction executes and then releases all its locks only when it finishes execution. On the other hand, two-phase locking acquires locks in the expanding phase during which it is also able to start execution on data that it acquired locks on. After it has acquired all the locks, it enters the shrinking phase in which it is not able to acquire any more locks and can only release locks. During the shriking phase, the transaction may still be executing on data on which it still holds locks. Two-phase locking scheme should perform better than locking scheme B since it does not wait to acquire all its locks before execution and neither does it wait for the end of execution to start releasing locks.
+
+Qn4:
+
+OCC with serial validation (OCC) that is simpler performs better than the more complex OCC with parallel validation (OCC_P). This is contrary to what is expected since OCC_P has more thread workers for the validation phase and should theoretically perform better than OCC. I think that this was the case because the complexity of OCC_P introduced more overhead onto the system which may not have been taken into account when considering the scheme theoretically. For example, there are more threads created in OCC_P than in OCC and the overhead on the system for creation of these additional threads is not taken into account. OCC_P would also have a greater number of transaction roll-backs compared to OCC. This is because there is a higher probability for read and write sets intersecting in OCC_P which translates into a higher number of transactions being rolled back. This evenually results to a poorer performance by the OCC_P than expected. In a real system, OCC_P would perform better for read only transactions because of the shortening of the critical section of the validation phase. Hence OCC_P would be better for read only transactions while OCC will perform better for transactions involving a greater number of writes.
+
+We implemented the pseudocode given for the assignment and used M = 2 and N = 10. N is the number of threads that are being assigned for transaction validation at each instance of the scheduler. M is the the number of times transactions are being rolled back and re-added as new transactions. We chose M < N so that the rate at which transactions are being validated is slower than the rate at which they are being rolled back because otherwise there will be too many transactions lying around that will be waiting to be rolled back. Smaller numbers of M and N seemed to produce better run times for OCC_P and hence we used these values by experimentation. I speculate that the small number of threads makes the system less parallel and therefore there are lesser roll-backs of transactions which results into the higher throughput.
+
+Qn5:
+
+The probability that there is NO conflict between a pair of transactions a and b is (9/10)^n. Therefore the probability that there IS a conflict between a pair of transactions a and b is 1 - (0.9)^n under the model given. There are a total of k transactions running at a given time and there are k!/(k-2)! = k(k - 1) ways of picking the permutation pairs. Therefore, the probability of conflicts among the k transaction is (1 - (0.9)^n) x k(k - 1) and the expected abort percentage in OCC with serial validation is 100 x (1 - (0.9)^n) x k(k - 1).
+
+In OCC_P, we must also consider write-write conflicts which is given by the contention rate of 65.95%. Therefore, we can obtain the total conflict by adding this to the read-write conflicts = 65.95 + (100 x (1 - (0.9)^n) x k(k - 1))
